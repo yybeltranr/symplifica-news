@@ -23,3 +23,5 @@ app:
     model-name: ${OLLAMA_MODEL:gemma3:4b}
     temperature: 0.2
     timeout: PT120S
+  news:
+    recipients: ${NEWS_EMAIL_TO}
