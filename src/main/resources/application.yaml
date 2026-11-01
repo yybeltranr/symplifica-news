@@ -25,3 +25,4 @@ app:
     timeout: PT120S
   news:
     recipients: ${NEWS_EMAIL_TO}
+    rss-url: http://portafolio.co/rss/tendencias/entretenimiento.xml
