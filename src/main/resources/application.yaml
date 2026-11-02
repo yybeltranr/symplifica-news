@@ -17,16 +17,6 @@ spring:
   flyway:
     enabled: true
 
-app:
-  ollama:
-    base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
-    model-name: ${OLLAMA_MODEL:gemma3:4b}
-    temperature: 0.2
-    timeout: PT120S
-  news:
-    recipients: ${NEWS_EMAIL_TO}
-    rss-url: http://portafolio.co/rss/tendencias/entretenimiento.xml
-    subject: Resumen diario de noticias de entretenimiento
   mail:
     host: ${MAIL_HOST}
     port: ${MAIL_PORT:587}
@@ -41,3 +31,15 @@ app:
           connectiontimeout: 10000
           timeout: 10000
           writetimeout: 10000
+
+app:
+  ollama:
+    base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
+    model-name: ${OLLAMA_MODEL:gemma3:4b}
+    temperature: 0.2
+    timeout: PT120S
+  news:
+    recipients: ${NEWS_EMAIL_TO}
+    rss-url: http://portafolio.co/rss/tendencias/entretenimiento.xml
+    subject: Resumen de noticias de entretenimiento
+
