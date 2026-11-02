@@ -23,9 +23,21 @@ public class AiSummaryService {
           );
       }
 
-      String titulos = noticias.stream()
+      /* String titulos = noticias.stream()
               .map(RssItem::title)
-              .collect(Collectors.joining("\n- ", "- ", ""));
+              .collect(Collectors.joining("\n- ", "- ", "")); */
+        String contenidoNoticias = noticias.stream()
+        .map(noticia -> """
+                Titular: %s
+                Descripción: %s
+                Fecha: %s
+                """
+                .formatted(
+                        noticia.title(),
+                        noticia.description(),
+                        noticia.publicationDate()
+                ))
+        .collect(Collectors.joining("\n"));
 
       String prompt = """
               Actúa como un periodista especializado en noticias
@@ -42,9 +54,9 @@ public class AiSummaryService {
               - El resumen debe tener máximo dos párrafos.
               - No incluyas introducciones sobre tu función como IA.
 
-              Titulares:
+              Información de las noticias:
               %s
-              """.formatted(titulos);
+              """.formatted(contenidoNoticias);
 
       String resumen = chatModel.chat(prompt);
 

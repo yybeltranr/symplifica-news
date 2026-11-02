@@ -26,6 +26,7 @@ app:
   news:
     recipients: ${NEWS_EMAIL_TO}
     rss-url: http://portafolio.co/rss/tendencias/entretenimiento.xml
+    subject: Resumen diario de noticias de entretenimiento
   mail:
     host: ${MAIL_HOST}
     port: ${MAIL_PORT:587}
