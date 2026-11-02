@@ -47,6 +47,9 @@ public class RssServiceTest {
                           <title>Noticia de prueba</title>
                           <link>https://ejemplo.com/noticia</link>
                           <description>Descripción de prueba</description>
+                          <guid>guid-noticia-1</guid>
+                          <category>Entretenimiento</category>
+                          <enclosure type="image/jpeg" url="https://ejemplo.com/imagen.jpg"/>
                           <pubDate>Sun, 01 Nov 2026 10:00:00 GMT</pubDate>
                       </item>
                   </channel>
@@ -72,6 +75,9 @@ public class RssServiceTest {
               "Descripción de prueba",
               noticias.get(0).description()
       );
+			assertEquals("guid-noticia-1", noticias.get(0).guid());
+      assertEquals("Entretenimiento", noticias.get(0).category());
+      assertEquals("https://ejemplo.com/imagen.jpg", noticias.get(0).imageUrl());
 
       mockServer.verify();
   }
@@ -112,6 +118,24 @@ public class RssServiceTest {
               () -> rssService.obtenerNoticias()
       );
 
+      mockServer.verify();
+  }
+
+	@Test
+  void debeRechazarUnaRespuestaHtmlEnLugarDeXml() {
+      mockServer.expect(requestTo(RSS_URL))
+              .andExpect(method(GET))
+              .andRespond(withSuccess(
+                      "<html><body><hr></body></html>",
+                      MediaType.TEXT_HTML
+              ));
+
+      IllegalStateException error = assertThrows(
+              IllegalStateException.class,
+              () -> rssService.obtenerNoticias()
+      );
+
+      assertTrue(error.getMessage().contains("tipo de contenido no XML"));
       mockServer.verify();
   }
 }

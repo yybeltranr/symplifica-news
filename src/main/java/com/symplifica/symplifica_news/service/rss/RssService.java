@@ -1,16 +1,17 @@
 package com.symplifica.symplifica_news.service.rss;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.ResponseEntity;
 
 import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -19,142 +20,115 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
-@Service 
+@Service
 public class RssService {
-	private final RestClient restClient;
-	private final String rssUrl;
+    private static final Logger log = LoggerFactory.getLogger(RssService.class);
 
-	private static final Logger log =
-	LoggerFactory.getLogger(RssService.class);
-	// Constructor principal que recibe el RestClient y la URL del RSS
-	@Autowired
-	public RssService(
-					@Value("${app.news.rss-url}") String rssUrl) {
+    private final RestClient restClient;
+    private final String rssUrl;
 
-			this(
-					RestClient.builder()
-							.defaultHeader(HttpHeaders.USER_AGENT, "Java/25")
-							.build(),
-					rssUrl
-			);
-}
+    @Autowired
+    public RssService(@Value("${app.news.rss-url}") String rssUrl) {
+        this(
+                RestClient.builder()
+                        .defaultHeader(HttpHeaders.USER_AGENT, "Java/25")
+                        .build(),
+                rssUrl
+        );
+    }
 
-	//Constructor de pruebas (no depende de internet)
-	RssService(RestClient restClient, String rssUrl) {
-		this.restClient = restClient;
-		this.rssUrl = rssUrl;
-	}
+    // Constructor de pruebas: permite inyectar un RestClient controlado.
+    RssService(RestClient restClient, String rssUrl) {
+        this.restClient = restClient;
+        this.rssUrl = rssUrl;
+    }
 
-	public List<RssItem> obtenerNoticias() {
+    public List<RssItem> obtenerNoticias() {
+        ResponseEntity<String> response = restClient.get()
+                .uri(rssUrl)
+                .header(HttpHeaders.ACCEPT,
+                        "application/rss+xml, application/xml, text/xml;q=0.9, */*;q=0.8")
+                .retrieve()
+                .toEntity(String.class);
 
-		ResponseEntity<String> response = restClient.get()
-						.uri(rssUrl)
-						.header(
-								HttpHeaders.ACCEPT,
-								"application/rss+xml, application/xml, text/xml;q=0.9, */*;q=0.8"
-						)
-						.retrieve()
-						.toEntity(String.class);
+        MediaType contentType = response.getHeaders().getContentType();
+        if (contentType != null) {
+            String subtype = contentType.getSubtype().toLowerCase(java.util.Locale.ROOT);
+            if (!"xml".equals(subtype) && !subtype.endsWith("+xml")) {
+                throw new IllegalStateException(
+                        "El servidor RSS devolvió un tipo de contenido no XML: " + contentType);
+            }
+        }
 
-		String xml = response.getBody();
+        String xml = response.getBody();
+        if (xml == null || xml.isBlank()) {
+            log.warn("El servidor RSS devolvió una respuesta vacía. status={}, contentType={}",
+                    response.getStatusCode(), response.getHeaders().getContentType());
+            return List.of();
+        }
 
-		String preview = xml == null
-						? "<sin contenido>"
-						: xml.substring(0, Math.min(xml.length(), 200))
-								 .replaceAll("\\s+", " ");
+        String preview = xml.substring(0, Math.min(xml.length(), 160)).replaceAll("\\s+", " ");
+        log.info("Respuesta RSS: status={}, contentType={}, longitud={}, inicio={}",
+                response.getStatusCode(), response.getHeaders().getContentType(), xml.length(), preview);
 
-		log.info(
-				"Respuesta RSS: status={}, contentType={}, longitud={}, inicio={}",
-				response.getStatusCode(),
-				response.getHeaders().getContentType(),
-				xml == null ? 0 : xml.length(),
-				preview
-		);
+        return analizarXml(xml);
+    }
 
-		if (xml == null || xml.isBlank()) {
-				log.warn("El servidor RSS devolvió una respuesta vacía.");
-				return List.of();
-		}
+    List<RssItem> analizarXml(String xml) {
+        List<RssItem> noticias = new ArrayList<>();
+        try {
+            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+            factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+            factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
+            factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+            factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "");
+            factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "");
 
-		return analizarXml(xml);
-	}
+            Document document = factory.newDocumentBuilder().parse(
+                    new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8)));
 
-	List<RssItem> analizarXml(String xml) {
+            if (document.getDocumentElement() == null
+                    || !"rss".equalsIgnoreCase(document.getDocumentElement().getTagName())) {
+                throw new IllegalArgumentException("La respuesta recibida no tiene un elemento raíz RSS");
+            }
 
-			List<RssItem> noticias = new ArrayList<>();
+            NodeList items = document.getElementsByTagName("item");
+            for (int i = 0; i < items.getLength(); i++) {
+                Element item = (Element) items.item(i);
+                String title = obtenerTexto(item, "title");
+                if (title.isBlank()) {
+                    continue;
+                }
 
-			try {
-					DocumentBuilderFactory factory =
-									DocumentBuilderFactory.newInstance();
+                String link = obtenerTexto(item, "link");
+                String guid = obtenerTexto(item, "guid");
+                String description = obtenerTexto(item, "description");
+                String publicationDate = obtenerTexto(item, "pubDate");
+                String category = obtenerTexto(item, "category");
+                String imageUrl = obtenerAtributo(item, "enclosure", "url");
 
-					factory.setFeature(
-									"http://apache.org/xml/features/disallow-doctype-decl",
-									true
-					);
+                noticias.add(new RssItem(
+                        title, link, description, publicationDate, guid, category, imageUrl));
+            }
+        } catch (Exception e) {
+            throw new IllegalStateException("No fue posible analizar el XML del RSS", e);
+        }
+        return noticias;
+    }
 
-					factory.setFeature(
-									"http://xml.org/sax/features/external-general-entities",
-									false
-					);
+    private String obtenerTexto(Element elemento, String etiqueta) {
+        NodeList nodos = elemento.getElementsByTagName(etiqueta);
+        if (nodos.getLength() == 0 || nodos.item(0).getTextContent() == null) {
+            return "";
+        }
+        return nodos.item(0).getTextContent().trim();
+    }
 
-					factory.setFeature(
-									"http://xml.org/sax/features/external-parameter-entities",
-									false
-					);
-
-					factory.setAttribute(
-									XMLConstants.ACCESS_EXTERNAL_DTD,
-									""
-					);
-
-					factory.setAttribute(
-									XMLConstants.ACCESS_EXTERNAL_SCHEMA,
-									""
-					);
-
-					Document document = factory.newDocumentBuilder()
-									.parse(new ByteArrayInputStream(
-													xml.getBytes(StandardCharsets.UTF_8)
-									));
-
-					NodeList items = document.getElementsByTagName("item");
-
-					for (int i = 0; i < items.getLength(); i++) {
-
-							Element item = (Element) items.item(i);
-
-							String title = obtenerTexto(item, "title");
-							String link = obtenerTexto(item, "link");
-							String description = obtenerTexto(item, "description");
-							String publicationDate = obtenerTexto(item, "pubDate");
-
-							if (!title.isBlank()) {
-									noticias.add(new RssItem(
-													title,
-													link,
-													description,
-													publicationDate
-									));
-							}
-					}
-
-			} catch (Exception e) {
-					throw new IllegalStateException(
-									"No fue posible analizar el XML del RSS", e
-					);
-			}
-
-			return noticias;
-	}
-
-	private String obtenerTexto(Element elemento, String etiqueta) {
-
-			NodeList nodos = elemento.getElementsByTagName(etiqueta);
-
-			if (nodos.getLength() == 0
-							|| nodos.item(0).getTextContent() == null) {
-					return "";
-			}
-			return nodos.item(0).getTextContent().trim();
-	}
+    private String obtenerAtributo(Element elemento, String etiqueta, String atributo) {
+        NodeList nodos = elemento.getElementsByTagName(etiqueta);
+        if (nodos.getLength() == 0 || !(nodos.item(0) instanceof Element hijo)) {
+            return "";
+        }
+        return hijo.getAttribute(atributo).trim();
+    }
 }
