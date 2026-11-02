@@ -10,6 +10,10 @@ import org.springframework.stereotype.Service;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+
 @Service
 public class EmailService {
   private final JavaMailSender mailSender;
@@ -59,7 +63,11 @@ public class EmailService {
           }
 
           helper.setTo(correos);
-          helper.setSubject(asunto);
+          // Agregar fecha y hora para diferenciar cada envío.
+					String fechaEnvio = ZonedDateTime.now(ZoneId.of("America/Bogota"))
+									.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS"));
+
+					helper.setSubject(asunto + " - " + fechaEnvio);
           helper.setText(construirHtml(resumen), true);
 
           mailSender.send(mensaje);
