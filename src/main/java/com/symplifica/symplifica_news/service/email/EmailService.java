@@ -77,8 +77,20 @@ public class EmailService {
               .replace(">", "&gt;")
               .replace("\"", "&quot;")
               .replace("'", "&#39;")
+      
               .replace("\n", "<br>");
+      // Compatibilidad visual si el modelo devuelve negritas Markdown pese a la instrucción.
+      contenido = contenido.replaceAll("\\*\\*(.+?)\\*\\*", "<strong>$1</strong>");
 
+      String[] parrafos = contenido.split("\\R\\s*\\R");
+      StringBuilder cuerpo = new StringBuilder();
+      for (String parrafo : parrafos) {
+          if (!parrafo.isBlank()) {
+              cuerpo.append("<p>")
+                      .append(parrafo.replaceAll("\\R", "<br>"))
+                      .append("</p>");
+          }
+      }
       return """
               <!DOCTYPE html>
               <html lang="es">

@@ -17,7 +17,7 @@ import org.mockito.ArgumentCaptor;
 
 @ExtendWith(MockitoExtension.class)
 public class AiSummaryServiceTest {
-@Mock
+	@Mock
   private ChatModel chatModel;
 
   @InjectMocks
@@ -59,6 +59,9 @@ public class AiSummaryServiceTest {
     assertTrue(promptEnviado.contains("Noticia de entretenimiento uno"));
     assertTrue(promptEnviado.contains("Noticia de entretenimiento dos"));
     assertTrue(promptEnviado.contains("máximo tres párrafos"));
+    assertTrue(promptEnviado.contains("No inventes nombres, lugares, fechas, cifras"));
+    assertTrue(promptEnviado.contains("Descripción: Descripción uno"));
+    assertTrue(promptEnviado.contains("sin Markdown"));
   }
 
   @Test

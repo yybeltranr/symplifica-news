@@ -1,5 +1,8 @@
 HELP.md
 target/
+/logs/
+*.log
+arranque-jobrunr*.log
 .mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
@@ -36,3 +39,11 @@ build/
 .env
 .env.*
 !.env.example
+
+### SO 
+.DS_Store
+Thumbs.db
+
+### JAVA
+hs_err_pid*.log
+replay_pid*.log
