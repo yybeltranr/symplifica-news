@@ -51,7 +51,7 @@ public class AiSummaryService {
               - No inventes datos ni acontecimientos.
               - Identifica los temas más relevantes.
               - Redacta de manera clara, natural y coherente.
-              - El resumen debe tener máximo dos párrafos.
+              - El resumen debe tener máximo tres párrafos.
               - No incluyas introducciones sobre tu función como IA.
 
               Información de las noticias:

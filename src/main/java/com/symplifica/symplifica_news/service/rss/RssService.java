@@ -7,6 +7,10 @@ import org.springframework.web.client.RestClient;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseEntity;
 
 import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -17,113 +21,140 @@ import java.util.List;
 
 @Service 
 public class RssService {
-  private final RestClient restClient;
-  private final String rssUrl;
+	private final RestClient restClient;
+	private final String rssUrl;
 
+	private static final Logger log =
+	LoggerFactory.getLogger(RssService.class);
 	// Constructor principal que recibe el RestClient y la URL del RSS
-  @Autowired
-  public RssService(
-          @Value("${app.news.rss-url}") String rssUrl) {
+	@Autowired
+	public RssService(
+					@Value("${app.news.rss-url}") String rssUrl) {
 
-      this(RestClient.builder().build(), rssUrl);
-  }
+			this(
+					RestClient.builder()
+							.defaultHeader(HttpHeaders.USER_AGENT, "Java/25")
+							.build(),
+					rssUrl
+			);
+}
 
-  //Constructor de pruebas (no depende de internet)
-  RssService(RestClient restClient, String rssUrl) {
-    this.restClient = restClient;
-    this.rssUrl = rssUrl;
-  }
+	//Constructor de pruebas (no depende de internet)
+	RssService(RestClient restClient, String rssUrl) {
+		this.restClient = restClient;
+		this.rssUrl = rssUrl;
+	}
 
-  public List<RssItem> obtenerNoticias() {
+	public List<RssItem> obtenerNoticias() {
 
-      String xml = restClient.get()
-              .uri(rssUrl)
-              .retrieve()
-              .body(String.class);
+		ResponseEntity<String> response = restClient.get()
+						.uri(rssUrl)
+						.header(
+								HttpHeaders.ACCEPT,
+								"application/rss+xml, application/xml, text/xml;q=0.9, */*;q=0.8"
+						)
+						.retrieve()
+						.toEntity(String.class);
 
-      if (xml == null || xml.isBlank()) {
-          return List.of();
-      }
+		String xml = response.getBody();
 
-      return analizarXml(xml);
-  }
+		String preview = xml == null
+						? "<sin contenido>"
+						: xml.substring(0, Math.min(xml.length(), 200))
+								 .replaceAll("\\s+", " ");
 
-  List<RssItem> analizarXml(String xml) {
+		log.info(
+				"Respuesta RSS: status={}, contentType={}, longitud={}, inicio={}",
+				response.getStatusCode(),
+				response.getHeaders().getContentType(),
+				xml == null ? 0 : xml.length(),
+				preview
+		);
 
-      List<RssItem> noticias = new ArrayList<>();
+		if (xml == null || xml.isBlank()) {
+				log.warn("El servidor RSS devolvió una respuesta vacía.");
+				return List.of();
+		}
 
-      try {
-          DocumentBuilderFactory factory =
-                  DocumentBuilderFactory.newInstance();
+		return analizarXml(xml);
+	}
 
-          factory.setFeature(
-                  "http://apache.org/xml/features/disallow-doctype-decl",
-                  true
-          );
+	List<RssItem> analizarXml(String xml) {
 
-          factory.setFeature(
-                  "http://xml.org/sax/features/external-general-entities",
-                  false
-          );
+			List<RssItem> noticias = new ArrayList<>();
 
-          factory.setFeature(
-                  "http://xml.org/sax/features/external-parameter-entities",
-                  false
-          );
+			try {
+					DocumentBuilderFactory factory =
+									DocumentBuilderFactory.newInstance();
 
-          factory.setAttribute(
-                  XMLConstants.ACCESS_EXTERNAL_DTD,
-                  ""
-          );
+					factory.setFeature(
+									"http://apache.org/xml/features/disallow-doctype-decl",
+									true
+					);
 
-          factory.setAttribute(
-                  XMLConstants.ACCESS_EXTERNAL_SCHEMA,
-                  ""
-          );
+					factory.setFeature(
+									"http://xml.org/sax/features/external-general-entities",
+									false
+					);
 
-          Document document = factory.newDocumentBuilder()
-                  .parse(new ByteArrayInputStream(
-                          xml.getBytes(StandardCharsets.UTF_8)
-                  ));
+					factory.setFeature(
+									"http://xml.org/sax/features/external-parameter-entities",
+									false
+					);
 
-          NodeList items = document.getElementsByTagName("item");
+					factory.setAttribute(
+									XMLConstants.ACCESS_EXTERNAL_DTD,
+									""
+					);
 
-          for (int i = 0; i < items.getLength(); i++) {
+					factory.setAttribute(
+									XMLConstants.ACCESS_EXTERNAL_SCHEMA,
+									""
+					);
 
-              Element item = (Element) items.item(i);
+					Document document = factory.newDocumentBuilder()
+									.parse(new ByteArrayInputStream(
+													xml.getBytes(StandardCharsets.UTF_8)
+									));
 
-              String title = obtenerTexto(item, "title");
-              String link = obtenerTexto(item, "link");
-              String description = obtenerTexto(item, "description");
-              String publicationDate = obtenerTexto(item, "pubDate");
+					NodeList items = document.getElementsByTagName("item");
 
-              if (!title.isBlank()) {
-                  noticias.add(new RssItem(
-                          title,
-                          link,
-                          description,
-                          publicationDate
-                  ));
-              }
-          }
+					for (int i = 0; i < items.getLength(); i++) {
 
-      } catch (Exception e) {
-          throw new IllegalStateException(
-                  "No fue posible analizar el XML del RSS", e
-          );
-      }
+							Element item = (Element) items.item(i);
 
-      return noticias;
-  }
+							String title = obtenerTexto(item, "title");
+							String link = obtenerTexto(item, "link");
+							String description = obtenerTexto(item, "description");
+							String publicationDate = obtenerTexto(item, "pubDate");
 
-  private String obtenerTexto(Element elemento, String etiqueta) {
+							if (!title.isBlank()) {
+									noticias.add(new RssItem(
+													title,
+													link,
+													description,
+													publicationDate
+									));
+							}
+					}
 
-      NodeList nodos = elemento.getElementsByTagName(etiqueta);
+			} catch (Exception e) {
+					throw new IllegalStateException(
+									"No fue posible analizar el XML del RSS", e
+					);
+			}
 
-      if (nodos.getLength() == 0
-              || nodos.item(0).getTextContent() == null) {
-          return "";
-      }
-      return nodos.item(0).getTextContent().trim();
-  }
+			return noticias;
+	}
+
+	private String obtenerTexto(Element elemento, String etiqueta) {
+
+			NodeList nodos = elemento.getElementsByTagName(etiqueta);
+
+			if (nodos.getLength() == 0
+							|| nodos.item(0).getTextContent() == null) {
+					return "";
+			}
+			return nodos.item(0).getTextContent().trim();
+	}
 }

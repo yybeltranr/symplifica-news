@@ -40,8 +40,9 @@ app:
     timeout: PT120S
   news:
     recipients: ${NEWS_EMAIL_TO}
-    rss-url: http://portafolio.co/rss/tendencias/entretenimiento.xml
+    rss-url: https://www.portafolio.co/rss/tendencias/entretenimiento.xml
     subject: Resumen de noticias de entretenimiento
+    job-cron: ${NEWS_JOB_CRON:0 * * * *}
 
 jobrunr:
   job-scheduler:
@@ -51,5 +52,10 @@ jobrunr:
     enabled: true
 
   dashboard:
-    enabled: false
+    enabled: true
+    port: 8000
+
+logging:
+  level:
+    '[org.jobrunr.server]': INFO
 

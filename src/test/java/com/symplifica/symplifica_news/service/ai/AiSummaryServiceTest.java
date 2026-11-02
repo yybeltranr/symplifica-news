@@ -58,7 +58,7 @@ public class AiSummaryServiceTest {
 
     assertTrue(promptEnviado.contains("Noticia de entretenimiento uno"));
     assertTrue(promptEnviado.contains("Noticia de entretenimiento dos"));
-    assertTrue(promptEnviado.contains("máximo dos párrafos"));
+    assertTrue(promptEnviado.contains("máximo tres párrafos"));
   }
 
   @Test
