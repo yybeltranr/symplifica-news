@@ -43,3 +43,13 @@ app:
     rss-url: http://portafolio.co/rss/tendencias/entretenimiento.xml
     subject: Resumen de noticias de entretenimiento
 
+jobrunr:
+  job-scheduler:
+    enabled: true
+
+  background-job-server:
+    enabled: true
+
+  dashboard:
+    enabled: false
+

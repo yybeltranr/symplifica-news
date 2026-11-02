@@ -1,6 +1,8 @@
 package com.symplifica.symplifica_news.service.rss;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -13,22 +15,23 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
+@Service 
 public class RssService {
   private final RestClient restClient;
   private final String rssUrl;
 
+	// Constructor principal que recibe el RestClient y la URL del RSS
+  @Autowired
+  public RssService(
+          @Value("${app.news.rss-url}") String rssUrl) {
+
+      this(RestClient.builder().build(), rssUrl);
+  }
+
+  //Constructor de pruebas (no depende de internet)
   RssService(RestClient restClient, String rssUrl) {
     this.restClient = restClient;
     this.rssUrl = rssUrl;
-  }
-
-  public RssService(
-          RestClient.Builder restClientBuilder,
-          //lee url del yaml
-          @Value("${app.news.rss-url}") String rssUrl) {
-
-      this.restClient = restClientBuilder.build();
-      this.rssUrl = rssUrl;
   }
 
   public List<RssItem> obtenerNoticias() {
